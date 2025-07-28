@@ -100,111 +100,113 @@
 
     <script>
         // ✅ FINAL PROFESSIONAL CODE
-        const fileInput = document.getElementById('fileInput');
-        const compressBtn = document.getElementById('compressBtn');
-        const loader = document.getElementById('loader');
-        const status = document.getElementById('status');
-        const mainStatus = document.getElementById('main-status');
-        const resultDiv = document.getElementById('result');
-        const lowEstimateSpan = document.getElementById('lowEstimate');
-        const mediumEstimateSpan = document.getElementById('mediumEstimate');
-        const highEstimateSpan = document.getElementById('highEstimate');
+        document.addEventListener('DOMContentLoaded', () => {
+            const fileInput = document.getElementById('fileInput');
+            const compressBtn = document.getElementById('compressBtn');
+            const loader = document.getElementById('loader');
+            const status = document.getElementById('status');
+            const mainStatus = document.getElementById('main-status');
+            const resultDiv = document.getElementById('result');
+            const lowEstimateSpan = document.getElementById('lowEstimate');
+            const mediumEstimateSpan = document.getElementById('mediumEstimate');
+            const highEstimateSpan = document.getElementById('highEstimate');
 
-        // This function will run as soon as the DOM is ready
-        (function initializeTool() {
-            let attempts = 0;
-            const maxAttempts = 200; // 20 seconds timeout
+            // This function will run as soon as the DOM is ready
+            (function initializeTool() {
+                let attempts = 0;
+                const maxAttempts = 200; // 20 seconds timeout
 
-            const checkGS = setInterval(() => {
-                attempts++;
-                // Check if the Ghostscript object and its create method are available
-                if (typeof Ghostscript !== 'undefined' && Ghostscript.create) {
+                const checkGS = setInterval(() => {
+                    attempts++;
+                    // Check if the Ghostscript object and its create method are available
+                    if (typeof Ghostscript !== 'undefined' && Ghostscript.create) {
+                        compressBtn.disabled = false;
+                        compressBtn.innerHTML = '🗜️ Compress PDF';
+                        mainStatus.textContent = 'Engine Ready. Please select a PDF file.';
+                        clearInterval(checkGS); // Stop checking once it's found
+                    }
+                    
+                    // If it takes too long, show an error
+                    if (attempts > maxAttempts) {
+                        clearInterval(checkGS);
+                        compressBtn.innerHTML = 'Error: Refresh Page';
+                        mainStatus.textContent = 'Failed to load compression engine. Please check your connection and refresh.';
+                    }
+                }, 100); // Check every 100 milliseconds
+            })();
+            
+            function formatSize(kb) {
+                if (kb < 1024) { return `${Math.round(kb)} KB`; }
+                else { return `${(kb / 1024).toFixed(1)} MB`; }
+            }
+            
+            function updateQualityEstimates() {
+                const file = fileInput.files[0];
+                if (!file) {
+                    lowEstimateSpan.textContent = ''; mediumEstimateSpan.textContent = ''; highEstimateSpan.textContent = '';
+                    return;
+                }
+                const sizeKB = file.size / 1024;
+                const ranges = { low: { min: 0.70, max: 0.95 }, medium: { min: 0.40, max: 0.70 }, high: { min: 0.10, max: 0.40 } };
+                const lowMinResult = sizeKB * (1 - ranges.low.max); const lowMaxResult = sizeKB * (1 - ranges.low.min);
+                lowEstimateSpan.textContent = `(est. ${formatSize(lowMinResult)} - ${formatSize(lowMaxResult)})`;
+                const mediumMinResult = sizeKB * (1 - ranges.medium.max); const mediumMaxResult = sizeKB * (1 - ranges.medium.min);
+                mediumEstimateSpan.textContent = `(est. ${formatSize(mediumMinResult)} - ${formatSize(mediumMaxResult)})`;
+                const highMinResult = sizeKB * (1 - ranges.high.max); const highMaxResult = sizeKB * (1 - ranges.high.min);
+                highEstimateSpan.textContent = `(est. ${formatSize(highMinResult)} - ${formatSize(highMaxResult)})`;
+            }
+            
+            fileInput.addEventListener('change', updateQualityEstimates);
+
+            compressBtn.addEventListener('click', async () => {
+                const file = fileInput.files[0];
+                if (!file) { alert('Please select a PDF file first.'); return; }
+
+                compressBtn.disabled = true;
+                compressBtn.innerHTML = 'Processing...';
+                loader.style.display = 'block';
+                resultDiv.style.display = 'none';
+                status.textContent = 'Reading your file...';
+
+                try {
+                    const originalSizeBytes = file.size;
+                    const fileBuffer = await file.arrayBuffer();
+                    
+                    status.textContent = 'Starting powerful Ghostscript engine...';
+                    const gs = await Ghostscript.create();
+                    
+                    status.textContent = `Compressing PDF... This can take some time.`;
+                    const { outputFiles } = await gs.run({
+                        inputFiles: [{ name: file.name, data: new Uint8Array(fileBuffer) }],
+                        commands: [ `-sDEVICE=pdfwrite -dPDFSETTINGS=${document.getElementById('pdfSetting').value} -dCompatibilityLevel=1.4 -o compressed.pdf ${file.name}` ]
+                    });
+                    
+                    await gs.destroy();
+                    status.textContent = 'Finishing up...';
+
+                    const compressedBytes = outputFiles[0].data;
+                    const finalSizeBytes = compressedBytes.byteLength;
+                    const reduction = ((originalSizeBytes - finalSizeBytes) / originalSizeBytes * 100).toFixed(1);
+
+                    resultDiv.style.display = 'block';
+                    resultDiv.innerHTML = `
+                        <div class="result-info">
+                            <h4>✅ Compression Complete!</h4>
+                            <p><strong>Original Size:</strong> ${(originalSizeBytes / 1024 / 1024).toFixed(2)} MB</p>
+                            <p><strong>Compressed Size:</strong> ${(finalSizeBytes / 1024 / 1024).toFixed(2)} MB</p>
+                            <p style="color: var(--accent-primary);"><strong>Size Reduction: ${reduction}%</strong></p>
+                        </div>
+                        <a href="${URL.createObjectURL(new Blob([compressedBytes], { type: 'application/pdf' }))}" download="compressed-${file.name}" class="download-link">Download Compressed PDF</a>
+                    `;
+                } catch (err) {
+                    console.error("Compression failed:", err);
+                    status.textContent = 'An error occurred. The file might be corrupted, password-protected, or too complex.';
+                } finally {
+                    loader.style.display = 'none';
                     compressBtn.disabled = false;
                     compressBtn.innerHTML = '🗜️ Compress PDF';
-                    mainStatus.textContent = 'Engine Ready. Please select a PDF file.';
-                    clearInterval(checkGS); // Stop checking once it's found
                 }
-                
-                // If it takes too long, show an error
-                if (attempts > maxAttempts) {
-                    clearInterval(checkGS);
-                    compressBtn.innerHTML = 'Error: Refresh Page';
-                    mainStatus.textContent = 'Failed to load compression engine. Please check your connection and refresh.';
-                }
-            }, 100); // Check every 100 milliseconds
-        })();
-        
-        function formatSize(kb) {
-            if (kb < 1024) { return `${Math.round(kb)} KB`; }
-            else { return `${(kb / 1024).toFixed(1)} MB`; }
-        }
-        
-        function updateQualityEstimates() {
-            const file = fileInput.files[0];
-            if (!file) {
-                lowEstimateSpan.textContent = ''; mediumEstimateSpan.textContent = ''; highEstimateSpan.textContent = '';
-                return;
-            }
-            const sizeKB = file.size / 1024;
-            const ranges = { low: { min: 0.70, max: 0.95 }, medium: { min: 0.40, max: 0.70 }, high: { min: 0.10, max: 0.40 } };
-            const lowMinResult = sizeKB * (1 - ranges.low.max); const lowMaxResult = sizeKB * (1 - ranges.low.min);
-            lowEstimateSpan.textContent = `(est. ${formatSize(lowMinResult)} - ${formatSize(lowMaxResult)})`;
-            const mediumMinResult = sizeKB * (1 - ranges.medium.max); const mediumMaxResult = sizeKB * (1 - ranges.medium.min);
-            mediumEstimateSpan.textContent = `(est. ${formatSize(mediumMinResult)} - ${formatSize(mediumMaxResult)})`;
-            const highMinResult = sizeKB * (1 - ranges.high.max); const highMaxResult = sizeKB * (1 - ranges.high.min);
-            highEstimateSpan.textContent = `(est. ${formatSize(highMinResult)} - ${formatSize(highMaxResult)})`;
-        }
-        
-        fileInput.addEventListener('change', updateQualityEstimates);
-
-        compressBtn.addEventListener('click', async () => {
-            const file = fileInput.files[0];
-            if (!file) { alert('Please select a PDF file first.'); return; }
-
-            compressBtn.disabled = true;
-            compressBtn.innerHTML = 'Processing...';
-            loader.style.display = 'block';
-            resultDiv.style.display = 'none';
-            status.textContent = 'Reading your file...';
-
-            try {
-                const originalSizeBytes = file.size;
-                const fileBuffer = await file.arrayBuffer();
-                
-                status.textContent = 'Starting powerful Ghostscript engine...';
-                const gs = await Ghostscript.create();
-                
-                status.textContent = `Compressing PDF... This can take some time.`;
-                const { outputFiles } = await gs.run({
-                    inputFiles: [{ name: file.name, data: new Uint8Array(fileBuffer) }],
-                    commands: [ `-sDEVICE=pdfwrite -dPDFSETTINGS=${document.getElementById('pdfSetting').value} -dCompatibilityLevel=1.4 -o compressed.pdf ${file.name}` ]
-                });
-                
-                await gs.destroy();
-                status.textContent = 'Finishing up...';
-
-                const compressedBytes = outputFiles[0].data;
-                const finalSizeBytes = compressedBytes.byteLength;
-                const reduction = ((originalSizeBytes - finalSizeBytes) / originalSizeBytes * 100).toFixed(1);
-
-                resultDiv.style.display = 'block';
-                resultDiv.innerHTML = `
-                    <div class="result-info">
-                        <h4>✅ Compression Complete!</h4>
-                        <p><strong>Original Size:</strong> ${(originalSizeBytes / 1024 / 1024).toFixed(2)} MB</p>
-                        <p><strong>Compressed Size:</strong> ${(finalSizeBytes / 1024 / 1024).toFixed(2)} MB</p>
-                        <p style="color: var(--accent-primary);"><strong>Size Reduction: ${reduction}%</strong></p>
-                    </div>
-                    <a href="${URL.createObjectURL(new Blob([compressedBytes], { type: 'application/pdf' }))}" download="compressed-${file.name}" class="download-link">Download Compressed PDF</a>
-                `;
-            } catch (err) {
-                console.error("Compression failed:", err);
-                status.textContent = 'An error occurred. The file might be corrupted, password-protected, or too complex.';
-            } finally {
-                loader.style.display = 'none';
-                compressBtn.disabled = false;
-                compressBtn.innerHTML = '🗜️ Compress PDF';
-            }
+            });
         });
     </script>
 
