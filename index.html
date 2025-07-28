@@ -5,7 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>High-Power PDF Compressor - Vintellix Tools</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet"/>
-    <script src="https://cdn.jsdelivr.net/npm/ghostscript-wasm@1.0.12/dist/ghostscript-wasm.es.min.js"></script>
+    
+    <!-- ✅ UPDATED GHOSTSCRIPT LIBRARY - More reliable version -->
+    <script src="https://unpkg.com/ghostscript-wasm@1.0.12/dist/ghostscript-wasm.umd.js"></script>
     
     <!-- ✅ AAPKA SOCIAL BAR AD CODE -->
     <script type='text/javascript' src='//pl27286140.profitableratecpm.com/45/8a/80/458a80df8b95f358a78b8b9fdf1bc0a8.js'></script>
@@ -72,6 +74,7 @@
         .download-link:hover { transform: scale(1.05); }
         .quality-estimate { font-size: 0.8rem; color: var(--accent-primary); opacity: 0.9; margin-left: 10px; }
         .ad-container { margin-top: 30px; border-top: 2px solid var(--card-border-dark); padding-top: 20px; }
+        .error-message { color: #ff4444; background: rgba(255, 68, 68, 0.1); padding: 15px; border-radius: 8px; margin-top: 15px; }
     </style>
 </head>
 <body>
@@ -99,7 +102,7 @@
     </div>
 
     <script>
-        // ✅ FINAL PROFESSIONAL CODE
+        // ✅ FIXED PROFESSIONAL CODE FOR GITHUB PAGES
         document.addEventListener('DOMContentLoaded', () => {
             const fileInput = document.getElementById('fileInput');
             const compressBtn = document.getElementById('compressBtn');
@@ -111,28 +114,56 @@
             const mediumEstimateSpan = document.getElementById('mediumEstimate');
             const highEstimateSpan = document.getElementById('highEstimate');
 
-            // This function will run as soon as the DOM is ready
+            let ghostscriptInstance = null;
+
+            // ✅ IMPROVED INITIALIZATION WITH BETTER ERROR HANDLING
             (function initializeTool() {
                 let attempts = 0;
-                const maxAttempts = 200; // 20 seconds timeout
+                const maxAttempts = 300; // 30 seconds timeout
 
                 const checkGS = setInterval(() => {
                     attempts++;
-                    // Check if the Ghostscript object and its create method are available
-                    if (typeof Ghostscript !== 'undefined' && Ghostscript.create) {
-                        compressBtn.disabled = false;
-                        compressBtn.innerHTML = '🗜️ Compress PDF';
-                        mainStatus.textContent = 'Engine Ready. Please select a PDF file.';
-                        clearInterval(checkGS); // Stop checking once it's found
+                    
+                    try {
+                        // Check multiple possible global objects
+                        const GS = window.Ghostscript || window.ghostscript || window.GhostscriptWasm;
+                        
+                        if (GS && (GS.create || GS.init)) {
+                            compressBtn.disabled = false;
+                            compressBtn.innerHTML = '🗜️ Compress PDF';
+                            mainStatus.textContent = 'Engine Ready. Please select a PDF file.';
+                            ghostscriptInstance = GS;
+                            clearInterval(checkGS);
+                            return;
+                        }
+                    } catch (e) {
+                        console.log('Checking for Ghostscript...', attempts);
                     }
                     
-                    // If it takes too long, show an error
+                    // Update status every 10 attempts
+                    if (attempts % 10 === 0) {
+                        mainStatus.textContent = `Loading compression engine... (${Math.round(attempts/3)}s)`;
+                    }
+                    
+                    // If it takes too long, show error with retry option
                     if (attempts > maxAttempts) {
                         clearInterval(checkGS);
-                        compressBtn.innerHTML = 'Error: Refresh Page';
-                        mainStatus.textContent = 'Failed to load compression engine. Please check your connection and refresh.';
+                        compressBtn.disabled = false;
+                        compressBtn.innerHTML = '🔄 Retry Loading';
+                        mainStatus.innerHTML = `
+                            <div class="error-message">
+                                ⚠️ Failed to load compression engine. This might be due to:<br>
+                                • Slow internet connection<br>
+                                • Browser security settings<br>
+                                • Ad blockers blocking the library<br><br>
+                                Try refreshing the page or disabling ad blockers.
+                            </div>
+                        `;
+                        
+                        // Make retry button functional
+                        compressBtn.onclick = () => location.reload();
                     }
-                }, 100); // Check every 100 milliseconds
+                }, 100);
             })();
             
             function formatSize(kb) {
@@ -162,6 +193,12 @@
                 const file = fileInput.files[0];
                 if (!file) { alert('Please select a PDF file first.'); return; }
 
+                // If ghostscript not loaded, don't proceed
+                if (!ghostscriptInstance) {
+                    alert('Compression engine not loaded yet. Please wait or refresh the page.');
+                    return;
+                }
+
                 compressBtn.disabled = true;
                 compressBtn.innerHTML = 'Processing...';
                 loader.style.display = 'block';
@@ -173,16 +210,42 @@
                     const fileBuffer = await file.arrayBuffer();
                     
                     status.textContent = 'Starting powerful Ghostscript engine...';
-                    const gs = await Ghostscript.create();
+                    
+                    // ✅ IMPROVED GHOSTSCRIPT INITIALIZATION
+                    let gs;
+                    if (ghostscriptInstance.create) {
+                        gs = await ghostscriptInstance.create();
+                    } else if (ghostscriptInstance.init) {
+                        gs = await ghostscriptInstance.init();
+                    } else {
+                        throw new Error('Ghostscript initialization method not found');
+                    }
                     
                     status.textContent = `Compressing PDF... This can take some time.`;
+                    
+                    const pdfSetting = document.getElementById('pdfSetting').value;
+                    const inputFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_'); // Sanitize filename
+                    
                     const { outputFiles } = await gs.run({
-                        inputFiles: [{ name: file.name, data: new Uint8Array(fileBuffer) }],
-                        commands: [ `-sDEVICE=pdfwrite -dPDFSETTINGS=${document.getElementById('pdfSetting').value} -dCompatibilityLevel=1.4 -o compressed.pdf ${file.name}` ]
+                        inputFiles: [{ name: inputFileName, data: new Uint8Array(fileBuffer) }],
+                        commands: [
+                            `-sDEVICE=pdfwrite`,
+                            `-dPDFSETTINGS=${pdfSetting}`,
+                            `-dCompatibilityLevel=1.4`,
+                            `-dNOPAUSE`,
+                            `-dBATCH`,
+                            `-dSAFER`,
+                            `-o`, `compressed_${inputFileName}`,
+                            inputFileName
+                        ]
                     });
                     
                     await gs.destroy();
                     status.textContent = 'Finishing up...';
+
+                    if (!outputFiles || outputFiles.length === 0) {
+                        throw new Error('No output file generated');
+                    }
 
                     const compressedBytes = outputFiles[0].data;
                     const finalSizeBytes = compressedBytes.byteLength;
@@ -200,7 +263,21 @@
                     `;
                 } catch (err) {
                     console.error("Compression failed:", err);
-                    status.textContent = 'An error occurred. The file might be corrupted, password-protected, or too complex.';
+                    resultDiv.style.display = 'block';
+                    resultDiv.innerHTML = `
+                        <div class="error-message">
+                            <h4>❌ Compression Failed</h4>
+                            <p><strong>Error:</strong> ${err.message || 'Unknown error occurred'}</p>
+                            <p>This might happen if:</p>
+                            <ul style="text-align: left; margin: 10px 0;">
+                                <li>The PDF is password-protected</li>
+                                <li>The PDF is corrupted</li>
+                                <li>The PDF has complex security features</li>
+                                <li>The file is too large or complex</li>
+                            </ul>
+                            <p>Try with a different PDF file or refresh the page.</p>
+                        </div>
+                    `;
                 } finally {
                     loader.style.display = 'none';
                     compressBtn.disabled = false;
