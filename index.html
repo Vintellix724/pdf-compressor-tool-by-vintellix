@@ -34,6 +34,25 @@
             padding: 20px;
             box-sizing: border-box;
         }
+        .main-container {
+            display: flex;
+            justify-content: center;
+            align-items: stretch;
+            width: 100%;
+            max-width: 1200px;
+            gap: 20px;
+        }
+        .ad-side {
+            flex: 1;
+            max-width: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .ad-banner {
+            width: 100%;
+            min-height: 600px; /* Same size for left and right */
+        }
         .tool-card {
             background: var(--card-bg-dark);
             border: 2px solid var(--card-border-dark);
@@ -73,40 +92,45 @@
         .download-link { display: inline-block; background: var(--accent-primary); color: #000; font-weight: bold; text-decoration: none; padding: 10px 20px; border-radius: 6px; margin-top: 15px; transition: .3s; }
         .download-link:hover { transform: scale(1.05); }
         .quality-estimate { font-size: 0.8rem; color: var(--accent-primary); opacity: 0.9; margin-left: 10px; }
-        .ad-container { margin-top: 30px; border-top: 2px solid var(--card-border-dark); padding-top: 20px; display: flex; justify-content: space-between; gap: 10px; }
-        .ad-banner { flex: 1; min-height: 100px; } /* Same size for left and right banners */
         .error-message { color: #ff4444; background: rgba(255, 68, 68, 0.1); padding: 15px; border-radius: 8px; margin-top: 15px; }
         .seo-content { display: none; } /* Hidden for SEO */
     </style>
 </head>
 <body>
 
-    <div class="tool-card">
-        <h3>🚀 Basic PDF Compressor</h3>
-        <p id="main-status">This tool compresses PDFs using JSZip.</p>
-        <input type="file" id="fileInput" accept=".pdf">
-        <label for="pdfSetting" style="color: var(--accent-secondary); font-size: 1rem;">Select Compression Quality:</label>
-        <select id="pdfSetting">
-            <option value="low">Low Quality (Max Compression) <span class="quality-estimate" id="lowEstimate"></span></option>
-            <option value="medium" selected>Good Quality (Balanced) <span class="quality-estimate" id="mediumEstimate"></span></option>
-            <option value="high">High Quality (Best for Print) <span class="quality-estimate" id="highEstimate"></span></option>
-        </select>
-        <button id="compressBtn" class="process-btn" disabled>Initializing Engine...</button>
-        <div id="loader" class="loader-container">
-            <div class="loader"></div>
-            <p id="status">Starting process...</p>
-        </div>
-        <div id="result" style="display:none;"></div>
-        <div class="ad-container">
-            <!-- Left Social Banner -->
+    <div class="main-container">
+        <!-- Left Social Banner -->
+        <div class="ad-side">
             <div class="ad-banner">
                 <script async="async" data-cfasync="false" src="//pl27286151.profitableratecpm.com/825e99b067125e141e8fa7f4353d27b4/invoke.js"></script>
-                <div id="container-825e99b067125e141e8fa7f4353d27b4"></div>
+                <div id="container-825e99b067125e141e8fa7f4353d27b4-left"></div>
             </div>
-            <!-- Right Social Banner (Duplicate for same size) -->
+        </div>
+        
+        <!-- Tool Card -->
+        <div class="tool-card">
+            <h3>🚀 Basic PDF Compressor</h3>
+            <p id="main-status">This tool compresses PDFs using JSZip.</p>
+            <input type="file" id="fileInput" accept=".pdf">
+            <label for="pdfSetting" style="color: var(--accent-secondary); font-size: 1rem;">Select Compression Quality:</label>
+            <select id="pdfSetting">
+                <option value="low">Low Quality (Max Compression) <span class="quality-estimate" id="lowEstimate"></span></option>
+                <option value="medium" selected>Good Quality (Balanced) <span class="quality-estimate" id="mediumEstimate"></span></option>
+                <option value="high">High Quality (Best for Print) <span class="quality-estimate" id="highEstimate"></span></option>
+            </select>
+            <button id="compressBtn" class="process-btn" disabled>Initializing Engine...</button>
+            <div id="loader" class="loader-container">
+                <div class="loader"></div>
+                <p id="status">Starting process...</p>
+            </div>
+            <div id="result" style="display:none;"></div>
+        </div>
+        
+        <!-- Right Social Banner -->
+        <div class="ad-side">
             <div class="ad-banner">
                 <script async="async" data-cfasync="false" src="//pl27286151.profitableratecpm.com/825e99b067125e141e8fa7f4353d27b4/invoke.js"></script>
-                <div id="container-825e99b067125e141e8fa7f4353d27b4-right"></div> <!-- Unique ID to avoid conflict -->
+                <div id="container-825e99b067125e141e8fa7f4353d27b4-right"></div>
             </div>
         </div>
     </div>
