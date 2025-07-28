@@ -51,33 +51,18 @@
         }
         p { color: var(--accent-secondary); margin-bottom: 25px; }
         input[type="file"], select {
-            width: 100%;
-            padding: 12px;
-            margin: 15px 0;
-            border-radius: 10px;
-            font-family: inherit;
-            font-size: 1rem;
-            border: 1px solid var(--card-border-dark);
-            background: rgba(0,0,0,.3);
-            color: var(--text-dark);
+            width: 100%; padding: 12px; margin: 15px 0; border-radius: 10px; font-family: inherit; font-size: 1rem;
+            border: 1px solid var(--card-border-dark); background: rgba(0,0,0,.3); color: var(--text-dark);
         }
         select { text-align: center; }
         .process-btn {
-            width: 100% !important;
-            padding: 15px !important;
-            margin: 15px 0 !important;
-            border-radius: 10px !important;
-            font-family: inherit !important;
-            font-size: 1.2rem !important;
-            border: none !important;
+            width: 100% !important; padding: 15px !important; margin: 15px 0 !important; border-radius: 10px !important;
+            font-family: inherit !important; font-size: 1.2rem !important; border: none !important;
             background: linear-gradient(45deg, var(--accent-primary), var(--accent-secondary)) !important;
-            color: #000 !important;
-            font-weight: bold !important;
-            cursor: pointer !important;
-            box-shadow: 0 4px 15px rgba(0, 255, 159, .3) !important;
-            transition: all 0.3s ease;
+            color: #000 !important; font-weight: bold !important; cursor: pointer !important;
+            box-shadow: 0 4px 15px rgba(0, 255, 159, .3) !important; transition: all 0.3s ease;
         }
-        .process-btn:hover { transform: translateY(-3px) scale(1.02); }
+        .process-btn:hover:not(:disabled) { transform: translateY(-3px) scale(1.02); }
         .process-btn:disabled { background: #555 !important; color: #999 !important; cursor: not-allowed; opacity: 0.6; }
         .loader-container { display: none; margin-top: 20px; }
         .loader { margin: 10px auto; border: 3px solid rgba(0, 255, 159, .3); border-radius: 50%; border-top: 3px solid var(--accent-primary); width: 40px; height: 40px; animation: spin 1s linear infinite; }
@@ -93,82 +78,80 @@
 
     <div class="tool-card">
         <h3>🚀 High-Power Compressor</h3>
-        <p>This tool recompresses PDF images to achieve high compression. Please be patient.</p>
-
+        <p id="main-status">This tool recompresses PDF images to achieve high compression.</p>
         <input type="file" id="fileInput" accept=".pdf">
-
         <label for="pdfSetting" style="color: var(--accent-secondary); font-size: 1rem;">Select Compression Quality:</label>
         <select id="pdfSetting">
             <option value="/screen">Low Quality (Max Compression) <span class="quality-estimate" id="lowEstimate"></span></option>
             <option value="/ebook" selected>Good Quality (Balanced) <span class="quality-estimate" id="mediumEstimate"></span></option>
             <option value="/printer">High Quality (Best for Print) <span class="quality-estimate" id="highEstimate"></span></option>
         </select>
-
-        <button id="compressBtn" class="process-btn" disabled>Loading Tool...</button>
-
+        <button id="compressBtn" class="process-btn" disabled>Initializing Engine...</button>
         <div id="loader" class="loader-container">
             <div class="loader"></div>
             <p id="status">Starting process...</p>
         </div>
-
         <div id="result" style="display:none;"></div>
-        
-        <!-- ✅ AAPKA NATIVE BANNER AD CODE YAHAN DAALA GAYA HAI -->
         <div class="ad-container">
             <script async="async" data-cfasync="false" src="//pl27286151.profitableratecpm.com/825e99b067125e141e8fa7f4353d27b4/invoke.js"></script>
             <div id="container-825e99b067125e141e8fa7f4353d27b4"></div>
         </div>
-
     </div>
 
     <script>
+        // ✅ FINAL PROFESSIONAL CODE
         const fileInput = document.getElementById('fileInput');
         const compressBtn = document.getElementById('compressBtn');
         const loader = document.getElementById('loader');
         const status = document.getElementById('status');
+        const mainStatus = document.getElementById('main-status');
         const resultDiv = document.getElementById('result');
-
         const lowEstimateSpan = document.getElementById('lowEstimate');
         const mediumEstimateSpan = document.getElementById('mediumEstimate');
         const highEstimateSpan = document.getElementById('highEstimate');
 
-        // ✅ FINAL FIX: Library load hone ke baad button ko enable karne ka function
-        window.onload = function() {
+        // This function will run as soon as the DOM is ready
+        (function initializeTool() {
+            let attempts = 0;
+            const maxAttempts = 200; // 20 seconds timeout
+
             const checkGS = setInterval(() => {
+                attempts++;
+                // Check if the Ghostscript object and its create method are available
                 if (typeof Ghostscript !== 'undefined' && Ghostscript.create) {
                     compressBtn.disabled = false;
                     compressBtn.innerHTML = '🗜️ Compress PDF';
-                    clearInterval(checkGS);
+                    mainStatus.textContent = 'Engine Ready. Please select a PDF file.';
+                    clearInterval(checkGS); // Stop checking once it's found
                 }
-            }, 100); 
-        };
+                
+                // If it takes too long, show an error
+                if (attempts > maxAttempts) {
+                    clearInterval(checkGS);
+                    compressBtn.innerHTML = 'Error: Refresh Page';
+                    mainStatus.textContent = 'Failed to load compression engine. Please check your connection and refresh.';
+                }
+            }, 100); // Check every 100 milliseconds
+        })();
         
         function formatSize(kb) {
-            if (kb < 1024) {
-                return `${Math.round(kb)} KB`;
-            } else {
-                return `${(kb / 1024).toFixed(1)} MB`;
-            }
+            if (kb < 1024) { return `${Math.round(kb)} KB`; }
+            else { return `${(kb / 1024).toFixed(1)} MB`; }
         }
         
         function updateQualityEstimates() {
             const file = fileInput.files[0];
             if (!file) {
-                lowEstimateSpan.textContent = '';
-                mediumEstimateSpan.textContent = '';
-                highEstimateSpan.textContent = '';
+                lowEstimateSpan.textContent = ''; mediumEstimateSpan.textContent = ''; highEstimateSpan.textContent = '';
                 return;
             }
             const sizeKB = file.size / 1024;
             const ranges = { low: { min: 0.70, max: 0.95 }, medium: { min: 0.40, max: 0.70 }, high: { min: 0.10, max: 0.40 } };
-            const lowMinResult = sizeKB * (1 - ranges.low.max);
-            const lowMaxResult = sizeKB * (1 - ranges.low.min);
+            const lowMinResult = sizeKB * (1 - ranges.low.max); const lowMaxResult = sizeKB * (1 - ranges.low.min);
             lowEstimateSpan.textContent = `(est. ${formatSize(lowMinResult)} - ${formatSize(lowMaxResult)})`;
-            const mediumMinResult = sizeKB * (1 - ranges.medium.max);
-            const mediumMaxResult = sizeKB * (1 - ranges.medium.min);
+            const mediumMinResult = sizeKB * (1 - ranges.medium.max); const mediumMaxResult = sizeKB * (1 - ranges.medium.min);
             mediumEstimateSpan.textContent = `(est. ${formatSize(mediumMinResult)} - ${formatSize(mediumMaxResult)})`;
-            const highMinResult = sizeKB * (1 - ranges.high.max);
-            const highMaxResult = sizeKB * (1 - ranges.high.min);
+            const highMinResult = sizeKB * (1 - ranges.high.max); const highMaxResult = sizeKB * (1 - ranges.high.min);
             highEstimateSpan.textContent = `(est. ${formatSize(highMinResult)} - ${formatSize(highMaxResult)})`;
         }
         
@@ -176,12 +159,10 @@
 
         compressBtn.addEventListener('click', async () => {
             const file = fileInput.files[0];
-            if (!file) {
-                alert('Please select a PDF file first.');
-                return;
-            }
+            if (!file) { alert('Please select a PDF file first.'); return; }
 
             compressBtn.disabled = true;
+            compressBtn.innerHTML = 'Processing...';
             loader.style.display = 'block';
             resultDiv.style.display = 'none';
             status.textContent = 'Reading your file...';
@@ -190,15 +171,13 @@
                 const originalSizeBytes = file.size;
                 const fileBuffer = await file.arrayBuffer();
                 
-                status.textContent = 'Starting powerful Ghostscript engine... This may take a moment.';
+                status.textContent = 'Starting powerful Ghostscript engine...';
                 const gs = await Ghostscript.create();
                 
-                status.textContent = `Compressing PDF... This can take up to a minute for large files.`;
+                status.textContent = `Compressing PDF... This can take some time.`;
                 const { outputFiles } = await gs.run({
                     inputFiles: [{ name: file.name, data: new Uint8Array(fileBuffer) }],
-                    commands: [
-                        `-sDEVICE=pdfwrite -dPDFSETTINGS=${document.getElementById('pdfSetting').value} -dCompatibilityLevel=1.4 -o compressed.pdf ${file.name}`
-                    ]
+                    commands: [ `-sDEVICE=pdfwrite -dPDFSETTINGS=${document.getElementById('pdfSetting').value} -dCompatibilityLevel=1.4 -o compressed.pdf ${file.name}` ]
                 });
                 
                 await gs.destroy();
@@ -220,7 +199,7 @@
                 `;
             } catch (err) {
                 console.error("Compression failed:", err);
-                status.textContent = 'An error occurred. The file might be corrupted or too complex. Please try again.';
+                status.textContent = 'An error occurred. The file might be corrupted, password-protected, or too complex.';
             } finally {
                 loader.style.display = 'none';
                 compressBtn.disabled = false;
