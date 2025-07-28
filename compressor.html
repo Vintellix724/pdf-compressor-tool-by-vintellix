@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>High-Power PDF Compressor - Vintellix Tools</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet"/>
+    <style>
+        :root {
+            --bg-dark-primary: #0A0A23;
+            --bg-dark-secondary: #1A1A3A;
+            --accent-primary: #00FF9F;
+            --accent-secondary: #00BFFF;
+            --text-dark: #EAEAEA;
+            --card-bg-dark: rgba(26, 26, 58, .8);
+            --card-border-dark: rgba(0, 255, 159, .4);
+            --danger-color: #FF4747;
+            --success-color: #4CAF50;
+        }
+        body {
+            font-family: 'Orbitron', sans-serif;
+            background: linear-gradient(135deg, var(--bg-dark-primary) 0%, var(--bg-dark-secondary) 100%);
+            color: var(--text-dark);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .tool-card {
+            background: var(--card-bg-dark);
+            border: 2px solid var(--card-border-dark);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+            backdrop-filter: blur(10px);
+            text-align: center;
+            box-shadow: 0 0 40px rgba(0, 255, 159, 0.3);
+        }
+        h3 {
+            color: var(--accent-primary);
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px var(--accent-primary);
+        }
+        p { color: var(--accent-secondary); margin-bottom: 25px; }
+        input[type="file"], select {
+            width: 100%;
+            padding: 12px;
+            margin: 15px 0;
+            border-radius: 10px;
+            font-family: inherit;
+            font-size: 1rem;
+            border: 1px solid var(--card-border-dark);
+            background: rgba(0,0,0,.3);
+            color: var(--text-dark);
+        }
+        .process-btn {
+            width: 100% !important;
+            padding: 15px !important;
+            margin: 15px 0 !important;
+            border-radius: 10px !important;
+            font-family: inherit !important;
+            font-size: 1.2rem !important;
+            border: none !important;
+            background: linear-gradient(45deg, var(--accent-primary), var(--accent-secondary)) !important;
+            color: #000 !important;
+            font-weight: bold !important;
+            cursor: pointer !important;
+            box-shadow: 0 4px 15px rgba(0, 255, 159, .3) !important;
+            transition: all 0.3s ease;
+        }
+        .process-btn:hover { transform: translateY(-3px) scale(1.02); }
+        .process-btn:disabled { background: #555 !important; cursor: not-allowed; }
+        .loader-container { display: none; margin-top: 20px; }
+        .loader {
+            margin: 10px auto;
+            border: 3px solid rgba(0, 255, 159, .3);
+            border-radius: 50%;
+            border-top: 3px solid var(--accent-primary);
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .result-info {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(0,255,159,.1);
+            border-radius: 8px;
+            border: 1px solid var(--accent-primary);
+            text-align: left;
+        }
+        .download-link {
+            display: inline-block;
+            background: var(--accent-primary);
+            color: #000;
+            font-weight: bold;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            margin-top: 15px;
+            transition: .3s;
+        }
+        .download-link:hover { transform: scale(1.05); }
+    </style>
+</head>
+<body>
+
+    <div class="tool-card">
+        <h3>🚀 High-Power Compressor</h3>
+        <p>Get up to 90% file size reduction. Please be patient, this may take some time.</p>
+
+        <input type="file" id="fileInput" accept=".pdf">
+
+        <select id="pdfSetting">
+            <option value="/screen">Low Quality (Smallest Size / 72 dpi)</option>
+            <option value="/ebook" selected>Good Quality (Balanced / 150 dpi)</option>
+            <option value="/printer">High Quality (Large Size / 300 dpi)</option>
+        </select>
+
+        <button id="compressBtn" class="process-btn">🗜️ Compress PDF</button>
+
+        <div id="loader" class="loader-container">
+            <div class="loader"></div>
+            <p id="status">Starting process...</p>
+        </div>
+
+        <div id="result" style="display:none;"></div>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const compressBtn = document.getElementById('compressBtn');
+        const loader = document.getElementById('loader');
+        const status = document.getElementById('status');
+        const resultDiv = document.getElementById('result');
+
+        compressBtn.addEventListener('click', async () => {
+            const file = fileInput.files[0];
+            if (!file) {
+                alert('Please select a file first.');
+                return;
+            }
+
+            compressBtn.disabled = true;
+            loader.style.display = 'block';
+            resultDiv.style.display = 'none';
+            status.textContent = 'Loading heavy library (15-20 MB)... Please wait.';
+
+            try {
+                if (typeof Ghostscript === 'undefined') {
+                    await new Promise((resolve, reject) => {
+                        const script = document.createElement('script');
+                        script.src = 'https://cdn.jsdelivr.net/npm/ghostscript-wasm@1.0.12/dist/ghostscript-wasm.es.min.js';
+                        script.onload = resolve;
+                        script.onerror = reject;
+                        document.head.appendChild(script);
+                    });
+                }
+
+                status.textContent = 'Library loaded. Starting compression... This may take a minute.';
+                const originalSizeBytes = file.size;
+
+                const gs = await Ghostscript.create();
+                const { outputFiles } = await gs.run({
+                    inputFiles: [{ name: file.name, data: new Uint8Array(await file.arrayBuffer()) }],
+                    commands: [
+                        `-sDEVICE=pdfwrite -dPDFSETTINGS=${document.getElementById('pdfSetting').value} -dCompatibilityLevel=1.4 -o compressed.pdf ${file.name}`
+                    ]
+                });
+                await gs.destroy();
+
+                const compressedBytes = outputFiles[0].data;
+                const finalSizeBytes = compressedBytes.byteLength;
+
+                const reduction = ((originalSizeBytes - finalSizeBytes) / originalSizeBytes * 100).toFixed(1);
+
+                resultDiv.style.display = 'block';
+                resultDiv.innerHTML = `
+                    <div class="result-info">
+                        <h4>✅ Compression Complete!</h4>
+                        <p><strong>Original Size:</strong> ${(originalSizeBytes / 1024 / 1024).toFixed(2)} MB</p>
+                        <p><strong>Compressed Size:</strong> ${(finalSizeBytes / 1024 / 1024).toFixed(2)} MB</p>
+                        <p><strong>Size Reduction: ${reduction}%</strong></p>
+                    </div>
+                    <a href="${URL.createObjectURL(new Blob([compressedBytes], { type: 'application/pdf' }))}" download="compressed-${file.name}" class="download-link">Download Compressed PDF</a>
+                `;
+
+            } catch (err) {
+                console.error("Compression failed:", err);
+                status.textContent = 'An error occurred. Please try again.';
+            } finally {
+                loader.style.display = 'none';
+                compressBtn.disabled = false;
+            }
+        });
+    </script>
+
+</body>
+</html>
