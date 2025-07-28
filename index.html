@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>High-Power PDF Compressor - Vintellix Tools</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet"/>
+    <script src="https://cdn.jsdelivr.net/npm/ghostscript-wasm@1.0.12/dist/ghostscript-wasm.es.min.js"></script>
     <style>
         :root {
             --bg-dark-primary: #0A0A23;
@@ -14,8 +15,6 @@
             --text-dark: #EAEAEA;
             --card-bg-dark: rgba(26, 26, 58, .8);
             --card-border-dark: rgba(0, 255, 159, .4);
-            --danger-color: #FF4747;
-            --success-color: #4CAF50;
         }
         body {
             font-family: 'Orbitron', sans-serif;
@@ -58,6 +57,7 @@
             background: rgba(0,0,0,.3);
             color: var(--text-dark);
         }
+        select { text-align: center; } /* ✅ NAYA: Options ko center align kiya */
         .process-btn {
             width: 100% !important;
             padding: 15px !important;
@@ -74,52 +74,36 @@
             transition: all 0.3s ease;
         }
         .process-btn:hover { transform: translateY(-3px) scale(1.02); }
-        .process-btn:disabled { background: #555 !important; cursor: not-allowed; }
+        .process-btn:disabled { background: #555 !important; cursor: not-allowed; opacity: 0.6; }
         .loader-container { display: none; margin-top: 20px; }
-        .loader {
-            margin: 10px auto;
-            border: 3px solid rgba(0, 255, 159, .3);
-            border-radius: 50%;
-            border-top: 3px solid var(--accent-primary);
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-        }
+        .loader { margin: 10px auto; border: 3px solid rgba(0, 255, 159, .3); border-radius: 50%; border-top: 3px solid var(--accent-primary); width: 40px; height: 40px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .result-info {
-            margin-top: 20px;
-            padding: 15px;
-            background: rgba(0,255,159,.1);
-            border-radius: 8px;
-            border: 1px solid var(--accent-primary);
-            text-align: left;
-        }
-        .download-link {
-            display: inline-block;
-            background: var(--accent-primary);
-            color: #000;
-            font-weight: bold;
-            text-decoration: none;
-            padding: 10px 20px;
-            border-radius: 6px;
-            margin-top: 15px;
-            transition: .3s;
-        }
+        .result-info { margin-top: 20px; padding: 15px; background: rgba(0,255,159,.1); border-radius: 8px; border: 1px solid var(--accent-primary); text-align: left; }
+        .download-link { display: inline-block; background: var(--accent-primary); color: #000; font-weight: bold; text-decoration: none; padding: 10px 20px; border-radius: 6px; margin-top: 15px; transition: .3s; }
         .download-link:hover { transform: scale(1.05); }
+        /* ✅ NAYA: Estimate dikhane ke liye style */
+        .quality-estimate {
+            font-size: 0.8rem;
+            color: var(--accent-primary);
+            opacity: 0.9;
+            margin-left: 10px;
+        }
     </style>
 </head>
 <body>
 
     <div class="tool-card">
         <h3>🚀 High-Power Compressor</h3>
-        <p>Get up to 90% file size reduction. Please be patient, this may take some time.</p>
+        <p>This tool recompresses PDF images to achieve high compression. Please be patient.</p>
 
         <input type="file" id="fileInput" accept=".pdf">
 
+        <label for="pdfSetting" style="color: var(--accent-secondary); font-size: 1rem;">Select Compression Quality:</label>
         <select id="pdfSetting">
-            <option value="/screen">Low Quality (Smallest Size / 72 dpi)</option>
-            <option value="/ebook" selected>Good Quality (Balanced / 150 dpi)</option>
-            <option value="/printer">High Quality (Large Size / 300 dpi)</option>
+            <!-- ✅ NAYA: ESTIMATE DIKHANE KE LIYE SPAN JODA GAYA -->
+            <option value="/screen">Low Quality (Max Compression) <span class="quality-estimate" id="lowEstimate"></span></option>
+            <option value="/ebook" selected>Good Quality (Balanced) <span class="quality-estimate" id="mediumEstimate"></span></option>
+            <option value="/printer">High Quality (Best for Print) <span class="quality-estimate" id="highEstimate"></span></option>
         </select>
 
         <button id="compressBtn" class="process-btn">🗜️ Compress PDF</button>
@@ -139,40 +123,87 @@
         const status = document.getElementById('status');
         const resultDiv = document.getElementById('result');
 
+        // ✅ NAYA: Estimate spans ko select kiya
+        const lowEstimateSpan = document.getElementById('lowEstimate');
+        const mediumEstimateSpan = document.getElementById('mediumEstimate');
+        const highEstimateSpan = document.getElementById('highEstimate');
+
+        // ✅ NAYA: Size ko KB/MB mein format karne ka function
+        function formatSize(kb) {
+            if (kb < 1024) {
+                return `${Math.round(kb)} KB`;
+            } else {
+                return `${(kb / 1024).toFixed(1)} MB`;
+            }
+        }
+
+        // ✅ NAYA: File select hone par estimate update karne ka function
+        function updateQualityEstimates() {
+            const file = fileInput.files[0];
+            if (!file) {
+                lowEstimateSpan.textContent = '';
+                mediumEstimateSpan.textContent = '';
+                highEstimateSpan.textContent = '';
+                return;
+            }
+
+            const sizeKB = file.size / 1024;
+
+            const ranges = {
+                low: { min: 0.70, max: 0.95 },
+                medium: { min: 0.40, max: 0.70 },
+                high: { min: 0.10, max: 0.40 }
+            };
+
+            const lowMinResult = sizeKB * (1 - ranges.low.max);
+            const lowMaxResult = sizeKB * (1 - ranges.low.min);
+            lowEstimateSpan.textContent = `(est. ${formatSize(lowMinResult)} - ${formatSize(lowMaxResult)})`;
+
+            const mediumMinResult = sizeKB * (1 - ranges.medium.max);
+            const mediumMaxResult = sizeKB * (1 - ranges.medium.min);
+            mediumEstimateSpan.textContent = `(est. ${formatSize(mediumMinResult)} - ${formatSize(mediumMaxResult)})`;
+
+            const highMinResult = sizeKB * (1 - ranges.high.max);
+            const highMaxResult = sizeKB * (1 - ranges.high.min);
+            highEstimateSpan.textContent = `(est. ${formatSize(highMinResult)} - ${formatSize(highMaxResult)})`;
+        }
+
+        // ✅ NAYA: File select hone par function ko call karna
+        fileInput.addEventListener('change', updateQualityEstimates);
+
         compressBtn.addEventListener('click', async () => {
             const file = fileInput.files[0];
             if (!file) {
-                alert('Please select a file first.');
+                alert('Please select a PDF file first.');
+                return;
+            }
+            if (typeof Ghostscript === 'undefined') {
+                alert('The compression library is still loading. Please wait a few seconds and try again.');
                 return;
             }
 
             compressBtn.disabled = true;
             loader.style.display = 'block';
             resultDiv.style.display = 'none';
-            status.textContent = 'Loading heavy library (15-20 MB)... Please wait.';
+            status.textContent = 'Reading your file...';
 
             try {
-                if (typeof Ghostscript === 'undefined') {
-                    await new Promise((resolve, reject) => {
-                        const script = document.createElement('script');
-                        script.src = 'https://cdn.jsdelivr.net/npm/ghostscript-wasm@1.0.12/dist/ghostscript-wasm.es.min.js';
-                        script.onload = resolve;
-                        script.onerror = reject;
-                        document.head.appendChild(script);
-                    });
-                }
-
-                status.textContent = 'Library loaded. Starting compression... This may take a minute.';
                 const originalSizeBytes = file.size;
-
+                const fileBuffer = await file.arrayBuffer();
+                
+                status.textContent = 'Starting powerful Ghostscript engine... This may take a moment.';
                 const gs = await Ghostscript.create();
+                
+                status.textContent = `Compressing PDF... This can take up to a minute for large files.`;
                 const { outputFiles } = await gs.run({
-                    inputFiles: [{ name: file.name, data: new Uint8Array(await file.arrayBuffer()) }],
+                    inputFiles: [{ name: file.name, data: new Uint8Array(fileBuffer) }],
                     commands: [
                         `-sDEVICE=pdfwrite -dPDFSETTINGS=${document.getElementById('pdfSetting').value} -dCompatibilityLevel=1.4 -o compressed.pdf ${file.name}`
                     ]
                 });
+                
                 await gs.destroy();
+                status.textContent = 'Finishing up...';
 
                 const compressedBytes = outputFiles[0].data;
                 const finalSizeBytes = compressedBytes.byteLength;
@@ -185,14 +216,14 @@
                         <h4>✅ Compression Complete!</h4>
                         <p><strong>Original Size:</strong> ${(originalSizeBytes / 1024 / 1024).toFixed(2)} MB</p>
                         <p><strong>Compressed Size:</strong> ${(finalSizeBytes / 1024 / 1024).toFixed(2)} MB</p>
-                        <p><strong>Size Reduction: ${reduction}%</strong></p>
+                        <p style="color: var(--accent-primary);"><strong>Size Reduction: ${reduction}%</strong></p>
                     </div>
                     <a href="${URL.createObjectURL(new Blob([compressedBytes], { type: 'application/pdf' }))}" download="compressed-${file.name}" class="download-link">Download Compressed PDF</a>
                 `;
 
             } catch (err) {
                 console.error("Compression failed:", err);
-                status.textContent = 'An error occurred. Please try again.';
+                status.textContent = 'An error occurred. The file might be corrupted or too complex. Please try again.';
             } finally {
                 loader.style.display = 'none';
                 compressBtn.disabled = false;
