@@ -6,8 +6,8 @@
     <title>High-Power PDF Compressor - Vintellix Tools</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet"/>
     
-    <!-- ✅ FREE ALTERNATIVE: PDF.js (Works on GitHub Pages) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
+    <!-- ✅ JSZip for Fast Compression (No WASM) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     
     <!-- ✅ AAPKA SOCIAL BAR AD CODE -->
     <script type='text/javascript' src='//pl27286140.profitableratecpm.com/45/8a/80/458a80df8b95f358a78b8b9fdf1bc0a8.js'></script>
@@ -81,7 +81,7 @@
 
     <div class="tool-card">
         <h3>🚀 High-Power Compressor</h3>
-        <p id="main-status">This tool recompresses PDF images to achieve high compression.</p>
+        <p id="main-status">This tool compresses PDFs using JSZip.</p>
         <input type="file" id="fileInput" accept=".pdf">
         <label for="pdfSetting" style="color: var(--accent-secondary); font-size: 1rem;">Select Compression Quality:</label>
         <select id="pdfSetting">
@@ -102,7 +102,7 @@
     </div>
 
     <script>
-        // ✅ PDF.js BASED SOLUTION - Free and Works on GitHub Pages
+        // ✅ JSZip Solution - Fast Compression without WASM
         document.addEventListener('DOMContentLoaded', () => {
             const fileInput = document.getElementById('fileInput');
             const compressBtn = document.getElementById('compressBtn');
@@ -114,27 +114,23 @@
             const mediumEstimateSpan = document.getElementById('mediumEstimate');
             const highEstimateSpan = document.getElementById('highEstimate');
 
-            // Initialize PDF.js worker
-            if (typeof pdfjsLib !== 'undefined') {
-                pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
+            // Fast check for JSZip
+            if (typeof JSZip !== 'undefined') {
                 compressBtn.disabled = false;
                 compressBtn.innerHTML = '🗜️ Compress PDF';
                 mainStatus.textContent = 'Engine Ready. Please select a PDF file.';
             } else {
-                mainStatus.innerHTML = `
-                    <div class="error-message">
-                        ⚠️ Failed to load compression engine. Please refresh the page.
-                    </div>
-                `;
-                compressBtn.innerHTML = '🔄 Retry Loading';
+                mainStatus.innerHTML = `<div class="error-message">⚠️ Failed to load engine. Please refresh.</div>`;
+                compressBtn.innerHTML = '🔄 Retry';
                 compressBtn.onclick = () => location.reload();
+                return;
             }
-            
+
             function formatSize(kb) {
-                if (kb < 1024) { return `${Math.round(kb)} KB`; }
-                else { return `${(kb / 1024).toFixed(1)} MB`; }
+                if (kb < 1024) return `${Math.round(kb)} KB`;
+                return `${(kb / 1024).toFixed(1)} MB`;
             }
-            
+
             function updateQualityEstimates() {
                 const file = fileInput.files[0];
                 if (!file) {
@@ -143,24 +139,16 @@
                 }
                 const sizeKB = file.size / 1024;
                 const ranges = { low: { min: 0.70, max: 0.95 }, medium: { min: 0.40, max: 0.70 }, high: { min: 0.10, max: 0.40 } };
-                const lowMinResult = sizeKB * (1 - ranges.low.max); const lowMaxResult = sizeKB * (1 - ranges.low.min);
-                lowEstimateSpan.textContent = `(est. ${formatSize(lowMinResult)} - ${formatSize(lowMaxResult)})`;
-                const mediumMinResult = sizeKB * (1 - ranges.medium.max); const mediumMaxResult = sizeKB * (1 - ranges.medium.min);
-                mediumEstimateSpan.textContent = `(est. ${formatSize(mediumMinResult)} - ${formatSize(mediumMaxResult)})`;
-                const highMinResult = sizeKB * (1 - ranges.high.max); const highMaxResult = sizeKB * (1 - ranges.high.min);
-                highEstimateSpan.textContent = `(est. ${formatSize(highMinResult)} - ${formatSize(highMaxResult)})`;
+                lowEstimateSpan.textContent = `(est. ${formatSize(sizeKB * (1 - ranges.low.max))} - ${formatSize(sizeKB * (1 - ranges.low.min))})`;
+                mediumEstimateSpan.textContent = `(est. ${formatSize(sizeKB * (1 - ranges.medium.max))} - ${formatSize(sizeKB * (1 - ranges.medium.min))})`;
+                highEstimateSpan.textContent = `(est. ${formatSize(sizeKB * (1 - ranges.high.max))} - ${formatSize(sizeKB * (1 - ranges.high.min))})`;
             }
-            
+
             fileInput.addEventListener('change', updateQualityEstimates);
 
             compressBtn.addEventListener('click', async () => {
                 const file = fileInput.files[0];
                 if (!file) { alert('Please select a PDF file first.'); return; }
-
-                if (typeof pdfjsLib === 'undefined') {
-                    alert('Compression engine not loaded. Please refresh the page.');
-                    return;
-                }
 
                 compressBtn.disabled = true;
                 compressBtn.innerHTML = 'Processing...';
@@ -172,34 +160,38 @@
                     const originalSizeBytes = file.size;
                     const fileBuffer = await file.arrayBuffer();
                     
-                    status.textContent = 'Loading PDF document...';
-                    const pdf = await pdfjsLib.getDocument({ data: fileBuffer }).promise;
+                    status.textContent = 'Compressing PDF...';
+                    const zip = new JSZip();
+                    zip.file(file.name, fileBuffer);
                     
-                    status.textContent = 'Processing PDF...';
-                    const numPages = pdf.numPages;
+                    // Adjust compression level based on user selection
+                    const quality = document.getElementById('pdfSetting').value;
+                    let compressionLevel = 6; // Default medium
+                    if (quality === 'low') compressionLevel = 9; // Max compression
+                    if (quality === 'high') compressionLevel = 3; // Min compression
                     
-                    // Basic compression simulation by re-rendering (actual compression depends on library capability)
-                    // PDF.js doesn't natively compress, so we inform users about basic optimization
-                    status.textContent = `Processing ${numPages} pages...`;
-                    
-                    // For simplicity, we can't do much compression with PDF.js directly in browser without server-side support
-                    // We'll simulate a basic re-save process
-                    const reductionFactor = document.getElementById('pdfSetting').value === 'low' ? 0.6 : document.getElementById('pdfSetting').value === 'medium' ? 0.3 : 0.1;
-                    const simulatedCompressedSize = originalSizeBytes * (1 - reductionFactor);
-                    
-                    // This is just a placeholder for real compression; PDF.js alone can't compress like Ghostscript
-                    status.textContent = 'Finalizing...';
-                    
+                    const compressedContent = await zip.generateAsync({
+                        type: "blob",
+                        compression: "DEFLATE",
+                        compressionOptions: { level: compressionLevel }
+                    });
+
+                    const finalSizeBytes = compressedContent.size;
+                    const reduction = originalSizeBytes > finalSizeBytes ? 
+                        ((originalSizeBytes - finalSizeBytes) / originalSizeBytes * 100).toFixed(1) : 0;
+
                     resultDiv.style.display = 'block';
                     resultDiv.innerHTML = `
                         <div class="result-info">
                             <h4>✅ Compression Complete!</h4>
                             <p><strong>Original Size:</strong> ${(originalSizeBytes / 1024 / 1024).toFixed(2)} MB</p>
-                            <p><strong>Compressed Size:</strong> ${(simulatedCompressedSize / 1024 / 1024).toFixed(2)} MB</p>
-                            <p style="color: var(--accent-primary);"><strong>Size Reduction: ${(reductionFactor * 100).toFixed(1)}%</strong></p>
-                            <p><em>Note: This is a basic compression. For better results, use server-side tools.</em></p>
+                            <p><strong>Compressed Size:</strong> ${(finalSizeBytes / 1024 / 1024).toFixed(2)} MB</p>
+                            <p style="color: var(--accent-primary);"><strong>Size Reduction: ${reduction}%</strong></p>
+                            ${reduction == 0 ? '<p><em>Note: PDF already optimized or not compressible further.</em></p>' : ''}
+                            <p><em>Note: Output is a ZIP file containing the compressed PDF. Extract to access.</em></p>
                         </div>
-                        <a href="${URL.createObjectURL(new Blob([fileBuffer], { type: 'application/pdf' }))}" download="compressed-${file.name}" class="download-link">Download Compressed PDF</a>
+                        <a href="${URL.createObjectURL(compressedContent)}" 
+                           download="compressed-${file.name.split('.')[0]}.zip" class="download-link">Download Compressed ZIP</a>
                     `;
                 } catch (err) {
                     console.error("Compression failed:", err);
@@ -207,15 +199,8 @@
                     resultDiv.innerHTML = `
                         <div class="error-message">
                             <h4>❌ Compression Failed</h4>
-                            <p><strong>Error:</strong> ${err.message || 'Unknown error occurred'}</p>
-                            <p>This might happen if:</p>
-                            <ul style="text-align: left; margin: 10px 0;">
-                                <li>The PDF is password-protected</li>
-                                <li>The PDF is corrupted</li>
-                                <li>The PDF has complex security features</li>
-                                <li>The file is too large or complex</li>
-                            </ul>
-                            <p>Try with a different PDF file or refresh the page.</p>
+                            <p><strong>Error:</strong> ${err.message || 'Unknown error'}</p>
+                            <p>Possible reasons: File too large or corrupted.</p>
                         </div>
                     `;
                 } finally {
