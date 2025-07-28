@@ -6,6 +6,10 @@
     <title>High-Power PDF Compressor - Vintellix Tools</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet"/>
     <script src="https://cdn.jsdelivr.net/npm/ghostscript-wasm@1.0.12/dist/ghostscript-wasm.es.min.js"></script>
+    
+    <!-- ✅ AAPKA SOCIAL BAR AD CODE -->
+    <script type='text/javascript' src='//pl27286140.profitableratecpm.com/45/8a/80/458a80df8b95f358a78b8b9fdf1bc0a8.js'></script>
+    
     <style>
         :root {
             --bg-dark-primary: #0A0A23;
@@ -74,7 +78,7 @@
             transition: all 0.3s ease;
         }
         .process-btn:hover { transform: translateY(-3px) scale(1.02); }
-        .process-btn:disabled { background: #555 !important; color: #999 !important; cursor: not-allowed; opacity: 0.6; } /* ✅ NAYA: Disabled state ka style */
+        .process-btn:disabled { background: #555 !important; color: #999 !important; cursor: not-allowed; opacity: 0.6; }
         .loader-container { display: none; margin-top: 20px; }
         .loader { margin: 10px auto; border: 3px solid rgba(0, 255, 159, .3); border-radius: 50%; border-top: 3px solid var(--accent-primary); width: 40px; height: 40px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
@@ -82,6 +86,7 @@
         .download-link { display: inline-block; background: var(--accent-primary); color: #000; font-weight: bold; text-decoration: none; padding: 10px 20px; border-radius: 6px; margin-top: 15px; transition: .3s; }
         .download-link:hover { transform: scale(1.05); }
         .quality-estimate { font-size: 0.8rem; color: var(--accent-primary); opacity: 0.9; margin-left: 10px; }
+        .ad-container { margin-top: 30px; border-top: 2px solid var(--card-border-dark); padding-top: 20px; }
     </style>
 </head>
 <body>
@@ -99,7 +104,6 @@
             <option value="/printer">High Quality (Best for Print) <span class="quality-estimate" id="highEstimate"></span></option>
         </select>
 
-        <!-- ✅ NAYA: Button shuru mein disabled hai aur text alag hai -->
         <button id="compressBtn" class="process-btn" disabled>Loading Tool...</button>
 
         <div id="loader" class="loader-container">
@@ -108,6 +112,13 @@
         </div>
 
         <div id="result" style="display:none;"></div>
+        
+        <!-- ✅ AAPKA NATIVE BANNER AD CODE YAHAN DAALA GAYA HAI -->
+        <div class="ad-container">
+            <script async="async" data-cfasync="false" src="//pl27286151.profitableratecpm.com/825e99b067125e141e8fa7f4353d27b4/invoke.js"></script>
+            <div id="container-825e99b067125e141e8fa7f4353d27b4"></div>
+        </div>
+
     </div>
 
     <script>
@@ -121,16 +132,15 @@
         const mediumEstimateSpan = document.getElementById('mediumEstimate');
         const highEstimateSpan = document.getElementById('highEstimate');
 
-        // ✅ NAYA: Library load hone ke baad button ko enable karne ka function
+        // ✅ FINAL FIX: Library load hone ke baad button ko enable karne ka function
         window.onload = function() {
-            // Check if Ghostscript is ready, retry if not
             const checkGS = setInterval(() => {
-                if (typeof Ghostscript !== 'undefined') {
+                if (typeof Ghostscript !== 'undefined' && Ghostscript.create) {
                     compressBtn.disabled = false;
                     compressBtn.innerHTML = '🗜️ Compress PDF';
                     clearInterval(checkGS);
                 }
-            }, 100); // Har 100ms mein check karega
+            }, 100); 
         };
         
         function formatSize(kb) {
