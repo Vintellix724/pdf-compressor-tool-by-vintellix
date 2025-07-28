@@ -6,7 +6,10 @@
     <title>High-Power PDF Compressor - Vintellix Tools</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet"/>
     
-    <!-- ✅ RELIABLE PDF LIBRARY - Always works on GitHub Pages -->
+    <!-- ✅ PRIMARY LIBRARY: Ghostscript WASM (High Compression) -->
+    <script src="https://unpkg.com/ghostscript-wasm@1.0.12/dist/ghostscript-wasm.umd.js"></script>
+    
+    <!-- ✅ FALLBACK LIBRARY: PDF-lib (Reliable but Basic Compression) -->
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
     
     <!-- ✅ AAPKA SOCIAL BAR AD CODE -->
@@ -74,21 +77,22 @@
         .download-link:hover { transform: scale(1.05); }
         .quality-estimate { font-size: 0.8rem; color: var(--accent-primary); opacity: 0.9; margin-left: 10px; }
         .ad-container { margin-top: 30px; border-top: 2px solid var(--card-border-dark); padding-top: 20px; }
+        .error-message { color: #ff4444; background: rgba(255, 68, 68, 0.1); padding: 15px; border-radius: 8px; margin-top: 15px; }
     </style>
 </head>
 <body>
 
     <div class="tool-card">
         <h3>🚀 High-Power Compressor</h3>
-        <p id="main-status">PDF compression tool ready! Select a file to compress.</p>
+        <p id="main-status">This tool recompresses PDF images to achieve high compression.</p>
         <input type="file" id="fileInput" accept=".pdf">
         <label for="pdfSetting" style="color: var(--accent-secondary); font-size: 1rem;">Select Compression Quality:</label>
         <select id="pdfSetting">
-            <option value="high">Maximum Compression (Smallest Size)</option>
-            <option value="medium" selected>Balanced Quality & Size</option>
-            <option value="low">Minimum Compression (Best Quality)</option>
+            <option value="/screen">Low Quality (Max Compression) <span class="quality-estimate" id="lowEstimate"></span></option>
+            <option value="/ebook" selected>Good Quality (Balanced) <span class="quality-estimate" id="mediumEstimate"></span></option>
+            <option value="/printer">High Quality (Best for Print) <span class="quality-estimate" id="highEstimate"></span></option>
         </select>
-        <button id="compressBtn" class="process-btn">🗜️ Compress PDF</button>
+        <button id="compressBtn" class="process-btn" disabled>Initializing Engine...</button>
         <div id="loader" class="loader-container">
             <div class="loader"></div>
             <p id="status">Starting process...</p>
@@ -101,7 +105,7 @@
     </div>
 
     <script>
-        // ✅ WORKING SOLUTION - PDF-lib based compression
+        // ✅ DUAL ENGINE SOLUTION - Ghostscript (Primary) + PDF-lib (Fallback)
         document.addEventListener('DOMContentLoaded', () => {
             const fileInput = document.getElementById('fileInput');
             const compressBtn = document.getElementById('compressBtn');
@@ -109,119 +113,221 @@
             const status = document.getElementById('status');
             const mainStatus = document.getElementById('main-status');
             const resultDiv = document.getElementById('result');
+            const lowEstimateSpan = document.getElementById('lowEstimate');
+            const mediumEstimateSpan = document.getElementById('mediumEstimate');
+            const highEstimateSpan = document.getElementById('highEstimate');
 
-            // Check if PDF-lib is loaded
-            if (typeof PDFLib === 'undefined') {
-                mainStatus.textContent = 'Loading PDF engine...';
-                setTimeout(() => {
-                    if (typeof PDFLib !== 'undefined') {
-                        mainStatus.textContent = 'PDF compression tool ready! Select a file to compress.';
-                    } else {
-                        mainStatus.innerHTML = '❌ Failed to load PDF library. Please refresh the page.';
-                        compressBtn.innerHTML = '🔄 Refresh Page';
-                        compressBtn.onclick = () => location.reload();
+            let ghostscriptInstance = null;
+            let useGhostscript = false;
+
+            // ✅ INITIALIZATION WITH DUAL ENGINE CHECK
+            (function initializeTool() {
+                let attempts = 0;
+                const maxAttempts = 300; // 30 seconds timeout for Ghostscript
+
+                const checkGS = setInterval(() => {
+                    attempts++;
+                    
+                    try {
+                        // Check for Ghostscript
+                        const GS = window.Ghostscript || window.ghostscript || window.GhostscriptWasm;
+                        
+                        if (GS && (GS.create || GS.init)) {
+                            compressBtn.disabled = false;
+                            compressBtn.innerHTML = '🗜️ Compress PDF (High Power)';
+                            mainStatus.textContent = 'High-Power Engine Ready. Select a PDF file.';
+                            ghostscriptInstance = GS;
+                            useGhostscript = true;
+                            clearInterval(checkGS);
+                            return;
+                        }
+                    } catch (e) {
+                        console.log('Checking for Ghostscript...', attempts);
                     }
-                }, 2000);
+                    
+                    // Update status every 10 attempts
+                    if (attempts % 10 === 0) {
+                        mainStatus.textContent = `Loading High-Power Engine... (${Math.round(attempts/3)}s)`;
+                    }
+                    
+                    // If Ghostscript takes too long, fallback to PDF-lib
+                    if (attempts > maxAttempts) {
+                        clearInterval(checkGS);
+                        if (typeof PDFLib !== 'undefined') {
+                            compressBtn.disabled = false;
+                            compressBtn.innerHTML = '🗜️ Compress PDF (Basic)';
+                            mainStatus.textContent = 'Basic Engine Ready. Select a PDF file. (High-Power failed to load)';
+                            useGhostscript = false;
+                        } else {
+                            compressBtn.disabled = false;
+                            compressBtn.innerHTML = '🔄 Retry Loading';
+                            mainStatus.innerHTML = `
+                                <div class="error-message">
+                                    ⚠️ Failed to load any compression engine. This might be due to:<br>
+                                    • Slow internet connection<br>
+                                    • Browser security settings<br>
+                                    • Ad blockers blocking the library<br><br>
+                                    Try refreshing the page or disabling ad blockers.
+                                </div>
+                            `;
+                            compressBtn.onclick = () => location.reload();
+                        }
+                    }
+                }, 100);
+            })();
+            
+            function formatSize(kb) {
+                if (kb < 1024) { return `${Math.round(kb)} KB`; }
+                else { return `${(kb / 1024).toFixed(1)} MB`; }
             }
+            
+            function updateQualityEstimates() {
+                const file = fileInput.files[0];
+                if (!file) {
+                    lowEstimateSpan.textContent = ''; mediumEstimateSpan.textContent = ''; highEstimateSpan.textContent = '';
+                    return;
+                }
+                const sizeKB = file.size / 1024;
+                const ranges = { low: { min: 0.70, max: 0.95 }, medium: { min: 0.40, max: 0.70 }, high: { min: 0.10, max: 0.40 } };
+                const lowMinResult = sizeKB * (1 - ranges.low.max); const lowMaxResult = sizeKB * (1 - ranges.low.min);
+                lowEstimateSpan.textContent = `(est. ${formatSize(lowMinResult)} - ${formatSize(lowMaxResult)})`;
+                const mediumMinResult = sizeKB * (1 - ranges.medium.max); const mediumMaxResult = sizeKB * (1 - ranges.medium.min);
+                mediumEstimateSpan.textContent = `(est. ${formatSize(mediumMinResult)} - ${formatSize(mediumMaxResult)})`;
+                const highMinResult = sizeKB * (1 - ranges.high.max); const highMaxResult = sizeKB * (1 - ranges.high.min);
+                highEstimateSpan.textContent = `(est. ${formatSize(highMinResult)} - ${formatSize(highMaxResult)})`;
+            }
+            
+            fileInput.addEventListener('change', updateQualityEstimates);
 
             compressBtn.addEventListener('click', async () => {
                 const file = fileInput.files[0];
-                if (!file) {
-                    alert('Please select a PDF file first.');
-                    return;
-                }
-
-                if (typeof PDFLib === 'undefined') {
-                    alert('PDF library not loaded. Please refresh the page.');
-                    return;
-                }
+                if (!file) { alert('Please select a PDF file first.'); return; }
 
                 compressBtn.disabled = true;
                 compressBtn.innerHTML = 'Processing...';
                 loader.style.display = 'block';
                 resultDiv.style.display = 'none';
+                status.textContent = 'Reading your file...';
 
                 try {
                     const originalSizeBytes = file.size;
-                    status.textContent = 'Reading PDF file...';
-                    
                     const fileBuffer = await file.arrayBuffer();
                     
-                    status.textContent = 'Loading PDF document...';
-                    const pdfDoc = await PDFLib.PDFDocument.load(fileBuffer);
-                    
-                    status.textContent = 'Compressing PDF...';
-                    
-                    // Get compression settings
-                    const quality = document.getElementById('pdfSetting').value;
-                    let compressionLevel;
-                    
-                    switch(quality) {
-                        case 'high': compressionLevel = 0.3; break;
-                        case 'medium': compressionLevel = 0.7; break;
-                        case 'low': compressionLevel = 0.9; break;
-                        default: compressionLevel = 0.7;
+                    if (useGhostscript && ghostscriptInstance) {
+                        // ✅ GHOSTSCRIPT COMPRESSION (HIGH POWER)
+                        status.textContent = 'Starting powerful Ghostscript engine...';
+                        
+                        let gs;
+                        if (ghostscriptInstance.create) {
+                            gs = await ghostscriptInstance.create();
+                        } else if (ghostscriptInstance.init) {
+                            gs = await ghostscriptInstance.init();
+                        } else {
+                            throw new Error('Ghostscript initialization method not found');
+                        }
+                        
+                        status.textContent = `Compressing PDF with High-Power Engine...`;
+                        
+                        const pdfSetting = document.getElementById('pdfSetting').value;
+                        const inputFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+                        
+                        const { outputFiles } = await gs.run({
+                            inputFiles: [{ name: inputFileName, data: new Uint8Array(fileBuffer) }],
+                            commands: [
+                                `-sDEVICE=pdfwrite`,
+                                `-dPDFSETTINGS=${pdfSetting}`,
+                                `-dCompatibilityLevel=1.4`,
+                                `-dNOPAUSE`,
+                                `-dBATCH`,
+                                `-dSAFER`,
+                                `-o`, `compressed_${inputFileName}`,
+                                inputFileName
+                            ]
+                        });
+                        
+                        await gs.destroy();
+                        status.textContent = 'Finishing up...';
+
+                        if (!outputFiles || outputFiles.length === 0) {
+                            throw new Error('No output file generated by Ghostscript');
+                        }
+
+                        const compressedBytes = outputFiles[0].data;
+                        const finalSizeBytes = compressedBytes.byteLength;
+                        const reduction = ((originalSizeBytes - finalSizeBytes) / originalSizeBytes * 100).toFixed(1);
+
+                        resultDiv.style.display = 'block';
+                        resultDiv.innerHTML = `
+                            <div class="result-info">
+                                <h4>✅ Compression Complete! (High-Power)</h4>
+                                <p><strong>Original Size:</strong> ${(originalSizeBytes / 1024 / 1024).toFixed(2)} MB</p>
+                                <p><strong>Compressed Size:</strong> ${(finalSizeBytes / 1024 / 1024).toFixed(2)} MB</p>
+                                <p style="color: var(--accent-primary);"><strong>Size Reduction: ${reduction}%</strong></p>
+                            </div>
+                            <a href="${URL.createObjectURL(new Blob([compressedBytes], { type: 'application/pdf' }))}" download="compressed-${file.name}" class="download-link">Download Compressed PDF</a>
+                        `;
+                    } else if (typeof PDFLib !== 'undefined') {
+                        // ✅ PDF-LIB COMPRESSION (FALLBACK)
+                        status.textContent = 'Starting Basic Compression Engine...';
+                        const pdfDoc = await PDFLib.PDFDocument.load(fileBuffer);
+                        
+                        status.textContent = 'Compressing PDF with Basic Engine...';
+                        const compressedPdf = await PDFLib.PDFDocument.create();
+                        const pages = pdfDoc.getPages();
+                        
+                        for (let i = 0; i < pages.length; i++) {
+                            status.textContent = `Processing page ${i + 1} of ${pages.length}...`;
+                            const [copiedPage] = await compressedPdf.copyPages(pdfDoc, [i]);
+                            compressedPdf.addPage(copiedPage);
+                        }
+
+                        status.textContent = 'Finalizing compressed PDF...';
+                        const compressedBytes = await compressedPdf.save({
+                            useObjectStreams: false,
+                            addDefaultPage: false,
+                            objectsPerTick: 20
+                        });
+
+                        const finalSizeBytes = compressedBytes.byteLength;
+                        const reduction = originalSizeBytes > finalSizeBytes ? 
+                            ((originalSizeBytes - finalSizeBytes) / originalSizeBytes * 100).toFixed(1) : 0;
+
+                        resultDiv.style.display = 'block';
+                        resultDiv.innerHTML = `
+                            <div class="result-info">
+                                <h4>✅ Compression Complete! (Basic Mode)</h4>
+                                <p><strong>Original Size:</strong> ${(originalSizeBytes / 1024 / 1024).toFixed(2)} MB</p>
+                                <p><strong>Compressed Size:</strong> ${(finalSizeBytes / 1024 / 1024).toFixed(2)} MB</p>
+                                <p style="color: var(--accent-primary);"><strong>Size Reduction: ${reduction}%</strong></p>
+                                ${reduction == 0 ? '<p><em>Note: This PDF was already optimized or doesn\'t contain compressible content.</em></p>' : ''}
+                                <p><em>Note: High-Power Engine failed to load, using Basic Engine. Results may vary.</em></p>
+                            </div>
+                            <a href="${URL.createObjectURL(new Blob([compressedBytes], { type: 'application/pdf' }))}" download="compressed-${file.name}" class="download-link">Download Compressed PDF</a>
+                        `;
+                    } else {
+                        throw new Error('No compression engine available. Please refresh the page.');
                     }
-
-                    // Compress images in PDF
-                    const pages = pdfDoc.getPages();
-                    status.textContent = `Processing ${pages.length} pages...`;
-                    
-                    // Simple compression by re-saving with optimizations
-                    const compressedPdf = await PDFLib.PDFDocument.create();
-                    
-                    for (let i = 0; i < pages.length; i++) {
-                        status.textContent = `Processing page ${i + 1} of ${pages.length}...`;
-                        const [copiedPage] = await compressedPdf.copyPages(pdfDoc, [i]);
-                        compressedPdf.addPage(copiedPage);
-                    }
-
-                    status.textContent = 'Finalizing compressed PDF...';
-                    const compressedBytes = await compressedPdf.save({
-                        useObjectStreams: false,
-                        addDefaultPage: false,
-                        objectsPerTick: 20
-                    });
-
-                    const finalSizeBytes = compressedBytes.byteLength;
-                    const reduction = originalSizeBytes > finalSizeBytes ? 
-                        ((originalSizeBytes - finalSizeBytes) / originalSizeBytes * 100).toFixed(1) : 0;
-
-                    // Show results
+                } catch (err) {
+                    console.error("Compression failed:", err);
                     resultDiv.style.display = 'block';
                     resultDiv.innerHTML = `
-                        <div class="result-info">
-                            <h4>✅ Compression Complete!</h4>
-                            <p><strong>Original Size:</strong> ${(originalSizeBytes / 1024 / 1024).toFixed(2)} MB</p>
-                            <p><strong>Compressed Size:</strong> ${(finalSizeBytes / 1024 / 1024).toFixed(2)} MB</p>
-                            <p style="color: var(--accent-primary);"><strong>Size Reduction: ${reduction}%</strong></p>
-                            ${reduction == 0 ? '<p><em>Note: This PDF was already optimized or doesn\'t contain compressible content.</em></p>' : ''}
-                        </div>
-                        <a href="${URL.createObjectURL(new Blob([compressedBytes], { type: 'application/pdf' }))}" 
-                           download="compressed-${file.name}" class="download-link">Download Compressed PDF</a>
-                    `;
-
-                } catch (error) {
-                    console.error('Compression error:', error);
-                    resultDiv.style.display = 'block';
-                    resultDiv.innerHTML = `
-                        <div style="color: #ff4444; background: rgba(255, 68, 68, 0.1); padding: 15px; border-radius: 8px;">
+                        <div class="error-message">
                             <h4>❌ Compression Failed</h4>
-                            <p><strong>Error:</strong> ${error.message}</p>
-                            <p>Possible reasons:</p>
+                            <p><strong>Error:</strong> ${err.message || 'Unknown error occurred'}</p>
+                            <p>This might happen if:</p>
                             <ul style="text-align: left; margin: 10px 0;">
-                                <li>PDF is password-protected</li>
-                                <li>PDF is corrupted or invalid</li>
-                                <li>PDF has unsupported features</li>
-                                <li>File is too large</li>
+                                <li>The PDF is password-protected</li>
+                                <li>The PDF is corrupted</li>
+                                <li>The PDF has complex security features</li>
+                                <li>The file is too large or complex</li>
                             </ul>
-                            <p>Try with a different PDF file.</p>
+                            <p>Try with a different PDF file or refresh the page.</p>
                         </div>
                     `;
                 } finally {
                     loader.style.display = 'none';
                     compressBtn.disabled = false;
-                    compressBtn.innerHTML = '🗜️ Compress PDF';
+                    compressBtn.innerHTML = useGhostscript ? '🗜️ Compress PDF (High Power)' : '🗜️ Compress PDF (Basic)';
                 }
             });
         });
